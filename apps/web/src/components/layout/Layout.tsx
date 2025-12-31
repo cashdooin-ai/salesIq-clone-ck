@@ -1,0 +1,21 @@
+import { Outlet } from 'react-router-dom';
+import { Sidebar } from './Sidebar';
+import { Header } from './Header';
+import { useSocket } from '@/hooks/useSocket';
+
+export function Layout() {
+  // Initialize socket connection
+  useSocket();
+
+  return (
+    <div className="flex h-screen overflow-hidden bg-background">
+      <Sidebar />
+      <div className="flex flex-1 flex-col overflow-hidden">
+        <Header />
+        <main className="flex-1 overflow-hidden">
+          <Outlet />
+        </main>
+      </div>
+    </div>
+  );
+}

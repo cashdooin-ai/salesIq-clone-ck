@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Nexvo Widget - Development Preview</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+    }
+
+    .container {
+      max-width: 800px;
+      width: 100%;
+      background: white;
+      border-radius: 16px;
+      padding: 40px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      font-size: 32px;
+      margin-bottom: 12px;
+      color: #1f2937;
+    }
+
+    p {
+      font-size: 16px;
+      color: #6b7280;
+      margin-bottom: 32px;
+      line-height: 1.6;
+    }
+
+    .feature-list {
+      list-style: none;
+      margin-bottom: 32px;
+    }
+
+    .feature-list li {
+      padding: 12px 0;
+      border-bottom: 1px solid #e5e7eb;
+      color: #374151;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .feature-list li:last-child {
+      border-bottom: none;
+    }
+
+    .feature-list li::before {
+      content: "✓";
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      background-color: #10b981;
+      color: white;
+      border-radius: 50%;
+      text-align: center;
+      line-height: 24px;
+      font-weight: bold;
+      flex-shrink: 0;
+    }
+
+    .config-section {
+      background-color: #f9fafb;
+      border-radius: 8px;
+      padding: 20px;
+      margin-top: 24px;
+    }
+
+    .config-section h2 {
+      font-size: 18px;
+      margin-bottom: 16px;
+      color: #1f2937;
+    }
+
+    .config-code {
+      background-color: #1f2937;
+      color: #f9fafb;
+      padding: 16px;
+      border-radius: 6px;
+      font-family: 'Courier New', monospace;
+      font-size: 13px;
+      overflow-x: auto;
+      line-height: 1.6;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 4px 12px;
+      background-color: #4f46e5;
+      color: white;
+      border-radius: 12px;
+      font-size: 12px;
+      font-weight: 600;
+      margin-bottom: 16px;
+    }
+
+    .footer {
+      margin-top: 32px;
+      padding-top: 24px;
+      border-top: 1px solid #e5e7eb;
+      text-align: center;
+      color: #9ca3af;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <span class="badge">Development Preview</span>
+    <h1>Nexvo Chat Widget</h1>
+    <p>
+      This is a development preview of the Nexvo embeddable chat widget.
+      The widget should appear in the bottom-right corner of this page.
+      Click the button to open the chat interface.
+    </p>
+
+    <ul class="feature-list">
+      <li>Real-time messaging with Socket.IO</li>
+      <li>Pre-chat form support</li>
+      <li>Typing indicators</li>
+      <li>Mobile responsive design</li>
+      <li>Customizable colors and branding</li>
+      <li>Auto-scroll to new messages</li>
+      <li>Message status indicators</li>
+      <li>Smooth animations and transitions</li>
+    </ul>
+
+    <div class="config-section">
+      <h2>Widget Configuration</h2>
+      <div class="config-code">
+&lt;script
+  src="https://cdn.nexvo.io/widget.js"
+  data-api-key="your-api-key-here"
+  data-primary-color="#4F46E5"
+  data-header-title="Chat with us"
+  data-header-subtitle="We typically reply in a few minutes"
+  data-position="bottom-right"
+  data-auto-open="false"
+  data-show-branding="true"
+&gt;&lt;/script&gt;
+      </div>
+    </div>
+
+    <div class="footer">
+      Powered by Nexvo Customer Engagement Platform
+    </div>
+  </div>
+
+  <!-- Widget Script -->
+  <script type="module" src="/src/index.tsx"
+    data-api-key="demo-api-key-12345"
+    data-primary-color="#4F46E5"
+    data-header-title="Chat with Nexvo"
+    data-header-subtitle="We're here to help!"
+    data-welcome-message="Hi! How can we help you today?"
+    data-position="bottom-right"
+    data-auto-open="false"
+    data-show-branding="true"
+    data-api-url="http://localhost:3000"
+    data-ws-url="ws://localhost:3000"
+  ></script>
+</body>
+</html>

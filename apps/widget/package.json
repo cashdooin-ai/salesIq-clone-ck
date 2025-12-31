@@ -1,0 +1,33 @@
+{
+  "name": "@nexvo/widget",
+  "version": "1.0.0",
+  "description": "Embeddable chat widget for Nexvo customer engagement platform",
+  "type": "module",
+  "main": "dist/nexvo-widget.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
+  },
+  "keywords": [
+    "chat",
+    "widget",
+    "embeddable",
+    "customer-engagement",
+    "live-chat"
+  ],
+  "author": "Nexvo",
+  "license": "MIT",
+  "dependencies": {
+    "preact": "^10.19.3",
+    "socket.io-client": "^4.7.2"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.8.1",
+    "@types/node": "^20.10.6",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.10"
+  }
+}
