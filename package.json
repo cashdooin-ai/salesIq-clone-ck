@@ -1,0 +1,32 @@
+{
+  "name": "nexvo",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Next-generation customer engagement platform",
+  "scripts": {
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "start": "turbo start",
+    "lint": "turbo lint",
+    "test": "turbo test",
+    "clean": "turbo clean && rm -rf node_modules",
+    "db:generate": "pnpm --filter @nexvo/database generate",
+    "db:migrate": "pnpm --filter @nexvo/database migrate:dev",
+    "db:push": "pnpm --filter @nexvo/database push",
+    "db:studio": "pnpm --filter @nexvo/database studio",
+    "docker:up": "docker-compose -f docker/docker-compose.yml up -d",
+    "docker:down": "docker-compose -f docker/docker-compose.yml down",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\""
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "prettier": "^3.1.0",
+    "turbo": "^2.0.0",
+    "typescript": "^5.3.0"
+  },
+  "packageManager": "pnpm@8.15.0",
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  }
+}

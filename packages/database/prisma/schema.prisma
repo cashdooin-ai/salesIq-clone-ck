@@ -1,0 +1,458 @@
+// Nexvo Database Schema
+// Customer Engagement Platform
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================
+// ORGANIZATION & USERS
+// ============================================
+
+model Organization {
+  id        String   @id @default(cuid())
+  name      String
+  slug      String   @unique
+  domain    String?
+  logo      String?
+
+  // Settings
+  settings     Json @default("{}")
+  widgetConfig Json @default("{}")
+
+  // Plan
+  plan PlanType @default(FREE)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  users           User[]
+  visitors        Visitor[]
+  conversations   Conversation[]
+  chatbots        Chatbot[]
+  departments     Department[]
+  cannedResponses CannedResponse[]
+  apiKeys         ApiKey[]
+
+  @@index([slug])
+}
+
+enum PlanType {
+  FREE
+  STARTER
+  PRO
+  ENTERPRISE
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  passwordHash String
+  name         String
+  avatar       String?
+  role         UserRole   @default(OPERATOR)
+  status       UserStatus @default(OFFLINE)
+
+  // Organization
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Department
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  // Settings
+  settings Json @default("{}")
+
+  // Timestamps
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSeenAt DateTime?
+
+  // Relations
+  conversations Conversation[] @relation("OperatorConversations")
+  messages      Message[]
+  sessions      UserSession[]
+
+  @@index([organizationId])
+  @@index([email])
+}
+
+model UserSession {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([token])
+  @@index([userId])
+}
+
+enum UserRole {
+  OWNER
+  ADMIN
+  SUPERVISOR
+  OPERATOR
+}
+
+enum UserStatus {
+  ONLINE
+  AWAY
+  BUSY
+  OFFLINE
+}
+
+model Department {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Routing rules
+  routingRules Json @default("{}")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  users         User[]
+  conversations Conversation[]
+
+  @@index([organizationId])
+}
+
+// ============================================
+// VISITORS & TRACKING
+// ============================================
+
+model Visitor {
+  id String @id @default(cuid())
+
+  // Identity
+  visitorToken String  @unique
+  email        String?
+  name         String?
+  phone        String?
+  avatar       String?
+
+  // Organization
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Metadata
+  metadata Json     @default("{}")
+  tags     String[] @default([])
+
+  // Scoring
+  score Int @default(0)
+
+  // Timestamps
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+
+  // Relations
+  sessions      VisitorSession[]
+  conversations Conversation[]
+
+  @@index([organizationId])
+  @@index([visitorToken])
+  @@index([email])
+}
+
+model VisitorSession {
+  id String @id @default(cuid())
+
+  visitorId String
+  visitor   Visitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
+  // Session Info
+  ipAddress String?
+  userAgent String?
+
+  // Geo
+  country String?
+  city    String?
+  region  String?
+
+  // Traffic Source
+  referrer    String?
+  utmSource   String?
+  utmMedium   String?
+  utmCampaign String?
+
+  // Landing
+  landingPage String?
+
+  // Device
+  device  String? // desktop, mobile, tablet
+  browser String?
+  os      String?
+
+  // Timestamps
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  // Relations
+  pageViews PageView[]
+
+  @@index([visitorId])
+  @@index([startedAt])
+}
+
+model PageView {
+  id String @id @default(cuid())
+
+  sessionId String
+  session   VisitorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  url   String
+  title String?
+
+  // Time
+  enteredAt DateTime  @default(now())
+  exitedAt  DateTime?
+  timeSpent Int? // seconds
+
+  @@index([sessionId])
+}
+
+// ============================================
+// CONVERSATIONS & MESSAGES
+// ============================================
+
+model Conversation {
+  id String @id @default(cuid())
+
+  // Organization
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Visitor
+  visitorId String
+  visitor   Visitor @relation(fields: [visitorId], references: [id], onDelete: Cascade)
+
+  // Operator
+  operatorId String?
+  operator   User?   @relation("OperatorConversations", fields: [operatorId], references: [id])
+
+  // Department
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
+  // Status
+  status   ConversationStatus @default(PENDING)
+  priority Priority           @default(NORMAL)
+
+  // Channel
+  channel Channel @default(WIDGET)
+
+  // Metadata
+  subject  String?
+  tags     String[] @default([])
+  metadata Json     @default("{}")
+
+  // Feedback
+  rating   Int?
+  feedback String?
+
+  // Timestamps
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  closedAt        DateTime?
+  firstResponseAt DateTime?
+
+  // Relations
+  messages Message[]
+
+  @@index([organizationId])
+  @@index([visitorId])
+  @@index([operatorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum ConversationStatus {
+  PENDING // Waiting for operator
+  ACTIVE // In progress
+  WAITING // Waiting for visitor response
+  RESOLVED // Closed successfully
+  MISSED // No response
+}
+
+enum Priority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+enum Channel {
+  WIDGET
+  WHATSAPP
+  FACEBOOK
+  INSTAGRAM
+  TELEGRAM
+  EMAIL
+  SMS
+}
+
+model Message {
+  id String @id @default(cuid())
+
+  conversationId String
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  // Sender
+  senderType SenderType
+  senderId   String? // visitorId or oduserId
+  sender     User?   @relation(fields: [senderId], references: [id])
+
+  // Content
+  content     String
+  contentType MessageType @default(TEXT)
+
+  // Attachments
+  attachments Json[] @default([])
+
+  // Metadata
+  metadata Json @default("{}")
+
+  // Status
+  status MessageStatus @default(SENT)
+
+  // Timestamps
+  createdAt DateTime  @default(now())
+  readAt    DateTime?
+
+  @@index([conversationId])
+  @@index([createdAt])
+}
+
+enum SenderType {
+  VISITOR
+  OPERATOR
+  BOT
+  SYSTEM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  FILE
+  VIDEO
+  AUDIO
+  CARD // Rich card
+  BUTTONS // Quick replies
+  FORM // Form input
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+  FAILED
+}
+
+// ============================================
+// CHATBOTS
+// ============================================
+
+model Chatbot {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  name        String
+  description String?
+
+  // Type
+  type ChatbotType @default(FLOW)
+
+  // Flow data (for visual builder)
+  flowData Json @default("{}")
+
+  // Settings
+  settings Json @default("{}")
+
+  // Status
+  isActive Boolean @default(false)
+
+  // Triggers
+  triggers Json @default("[]")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+}
+
+enum ChatbotType {
+  FLOW // Visual flow-based
+  AI // AI-powered
+  HYBRID // Flow + AI
+}
+
+// ============================================
+// CANNED RESPONSES
+// ============================================
+
+model CannedResponse {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  shortcut String // e.g., /hello
+  title    String
+  content  String
+
+  category String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, shortcut])
+  @@index([organizationId])
+}
+
+// ============================================
+// API KEYS
+// ============================================
+
+model ApiKey {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  key  String @unique
+  name String
+
+  // Permissions
+  permissions String[] @default([])
+
+  // Usage
+  lastUsedAt DateTime?
+
+  // Status
+  isActive Boolean @default(true)
+
+  createdAt DateTime  @default(now())
+  expiresAt DateTime?
+
+  @@index([key])
+  @@index([organizationId])
+}
