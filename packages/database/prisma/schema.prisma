@@ -456,3 +456,29 @@ model ApiKey {
   @@index([key])
   @@index([organizationId])
 }
+
+// ============================================
+// FILE UPLOADS
+// ============================================
+
+model Upload {
+  id String @id @default(cuid())
+
+  organizationId String
+  userId         String?
+
+  // File info
+  filename     String
+  originalName String
+  mimeType     String
+  size         Int
+  url          String
+  folder       String // avatars, attachments, widget
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([organizationId])
+  @@index([userId])
+  @@index([folder])
+}

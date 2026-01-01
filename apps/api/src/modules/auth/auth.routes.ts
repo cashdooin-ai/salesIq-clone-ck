@@ -2,8 +2,9 @@ import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
 import { prisma } from '@nexvo/database';
-import { generateApiKey, slugify } from '@nexvo/shared';
+import { generateApiKey, slugify, ERROR_CODES } from '@nexvo/shared';
 import { signTokens, verifyRefreshToken } from './auth.utils.js';
+import { requireAuth } from '../../middleware/index.js';
 
 // Validation schemas
 const registerSchema = z.object({
@@ -16,6 +17,20 @@ const registerSchema = z.object({
 const loginSchema = z.object({
   email: z.string().email(),
   password: z.string(),
+});
+
+const changePasswordSchema = z.object({
+  currentPassword: z.string(),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
+});
+
+const requestPasswordResetSchema = z.object({
+  email: z.string().email(),
+});
+
+const resetPasswordSchema = z.object({
+  token: z.string(),
+  newPassword: z.string().min(8, 'Password must be at least 8 characters'),
 });
 
 export async function authRoutes(fastify: FastifyInstance) {
@@ -161,18 +176,175 @@ export async function authRoutes(fastify: FastifyInstance) {
   });
 
   // Get current user
-  fastify.get('/me', async (request, reply) => {
-    // This would use authentication middleware
-    // For now, return unauthorized
-    return reply.status(401).send({
+  fastify.get('/me', { preHandler: requireAuth }, async (request, reply) => {
+    // User is already attached by requireAuth middleware
+    const user = await prisma.user.findUnique({
+      where: { id: request.user!.id },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        role: true,
+        status: true,
+        settings: true,
+        organizationId: true,
+        departmentId: true,
+        createdAt: true,
+        lastSeenAt: true,
+        organization: {
+          select: {
+            id: true,
+            name: true,
+            slug: true,
+            logo: true,
+            plan: true,
+          },
+        },
+        department: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    if (!user) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'User not found' },
+      });
+    }
+
+    return { success: true, data: user };
+  });
+
+  // Update current user profile
+  fastify.put('/me', { preHandler: requireAuth }, async (request, reply) => {
+    const { name, avatar, settings } = request.body as any;
+
+    const user = await prisma.user.update({
+      where: { id: request.user!.id },
+      data: {
+        ...(name && { name }),
+        ...(avatar !== undefined && { avatar }),
+        ...(settings && { settings }),
+      },
+      select: {
+        id: true,
+        email: true,
+        name: true,
+        avatar: true,
+        role: true,
+        status: true,
+        settings: true,
+      },
+    });
+
+    return { success: true, data: user };
+  });
+
+  // Change password
+  fastify.post('/change-password', { preHandler: requireAuth }, async (request, reply) => {
+    const body = changePasswordSchema.parse(request.body);
+
+    // Get current user with password
+    const user = await prisma.user.findUnique({
+      where: { id: request.user!.id },
+      select: { id: true, passwordHash: true },
+    });
+
+    if (!user) {
+      return reply.status(404).send({
+        success: false,
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'User not found' },
+      });
+    }
+
+    // Verify current password
+    const validPassword = await bcrypt.compare(body.currentPassword, user.passwordHash);
+
+    if (!validPassword) {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: ERROR_CODES.INVALID_CREDENTIALS,
+          message: 'Current password is incorrect',
+        },
+      });
+    }
+
+    // Hash new password
+    const newPasswordHash = await bcrypt.hash(body.newPassword, 12);
+
+    // Update password
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { passwordHash: newPasswordHash },
+    });
+
+    return {
+      success: true,
+      data: { message: 'Password changed successfully' },
+    };
+  });
+
+  // Request password reset (placeholder for email verification)
+  fastify.post('/request-password-reset', async (request, reply) => {
+    const body = requestPasswordResetSchema.parse(request.body);
+
+    // Find user by email
+    const user = await prisma.user.findUnique({
+      where: { email: body.email },
+    });
+
+    // Always return success (don't reveal if email exists)
+    // In production, send email with reset link
+
+    if (user) {
+      // TODO: Generate reset token and send email
+      // For now, just log it
+      request.log.info({ userId: user.id, email: user.email }, 'Password reset requested');
+    }
+
+    return {
+      success: true,
+      data: {
+        message: 'If the email exists, a password reset link has been sent.',
+      },
+    };
+  });
+
+  // Reset password with token (placeholder)
+  fastify.post('/reset-password', async (request, reply) => {
+    const body = resetPasswordSchema.parse(request.body);
+
+    // TODO: Verify reset token and update password
+    // For now, return not implemented
+
+    return reply.status(501).send({
       success: false,
-      error: { code: 'UNAUTHORIZED', message: 'Authentication required' },
+      error: {
+        code: ERROR_CODES.SERVICE_UNAVAILABLE,
+        message: 'Password reset is not yet implemented',
+      },
     });
   });
 
   // Logout
-  fastify.post('/logout', async (request, reply) => {
-    // Clear session, update status
+  fastify.post('/logout', { preHandler: requireAuth }, async (request, reply) => {
+    // Update user status to offline
+    await prisma.user.update({
+      where: { id: request.user!.id },
+      data: { status: 'OFFLINE', lastSeenAt: new Date() },
+    });
+
+    // In production, you might also want to:
+    // - Invalidate the refresh token
+    // - Clear session from Redis
+    // - Emit socket event for user offline
+
     return { success: true, data: { message: 'Logged out successfully' } };
   });
 }

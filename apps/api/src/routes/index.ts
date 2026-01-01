@@ -5,6 +5,7 @@ import { organizationRoutes } from '../modules/organizations/organizations.route
 import { visitorRoutes } from '../modules/visitors/visitors.routes.js';
 import { conversationRoutes } from '../modules/conversations/conversations.routes.js';
 import { widgetRoutes } from '../modules/widget/widget.routes.js';
+import { uploadRoutes } from '../modules/uploads/uploads.routes.js';
 import { API_PREFIX } from '@nexvo/shared';
 
 export async function setupRoutes(fastify: FastifyInstance) {
@@ -25,6 +26,9 @@ export async function setupRoutes(fastify: FastifyInstance) {
 
       // Conversations
       await app.register(conversationRoutes, { prefix: '/conversations' });
+
+      // Uploads
+      await app.register(uploadRoutes, { prefix: '/uploads' });
 
       // Widget (public API)
       await app.register(widgetRoutes, { prefix: '/widget' });

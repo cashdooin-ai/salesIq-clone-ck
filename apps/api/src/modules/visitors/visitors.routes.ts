@@ -1,12 +1,17 @@
 import { FastifyInstance } from 'fastify';
 import { prisma } from '@nexvo/database';
+import { ERROR_CODES } from '@nexvo/shared';
+import { requireAuth } from '../../middleware/index.js';
 
 export async function visitorRoutes(fastify: FastifyInstance) {
-  // List visitors
-  fastify.get('/', async (request, reply) => {
+  // List visitors (require auth, filter by organization)
+  fastify.get('/', { preHandler: requireAuth }, async (request, reply) => {
     const { page = 1, limit = 20 } = request.query as any;
 
     const visitors = await prisma.visitor.findMany({
+      where: {
+        organizationId: request.user!.organizationId,
+      },
       take: limit,
       skip: (page - 1) * limit,
       orderBy: { lastSeenAt: 'desc' },
@@ -15,7 +20,11 @@ export async function visitorRoutes(fastify: FastifyInstance) {
       },
     });
 
-    const total = await prisma.visitor.count();
+    const total = await prisma.visitor.count({
+      where: {
+        organizationId: request.user!.organizationId,
+      },
+    });
 
     return {
       success: true,
@@ -24,13 +33,16 @@ export async function visitorRoutes(fastify: FastifyInstance) {
     };
   });
 
-  // Get online visitors
-  fastify.get('/online', async (request, reply) => {
+  // Get online visitors (require auth, filter by organization)
+  fastify.get('/online', { preHandler: requireAuth }, async (request, reply) => {
     // Online = lastSeenAt within last 5 minutes
     const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
 
     const visitors = await prisma.visitor.findMany({
-      where: { lastSeenAt: { gte: fiveMinutesAgo } },
+      where: {
+        organizationId: request.user!.organizationId,
+        lastSeenAt: { gte: fiveMinutesAgo },
+      },
       orderBy: { lastSeenAt: 'desc' },
       include: {
         sessions: {
@@ -44,12 +56,15 @@ export async function visitorRoutes(fastify: FastifyInstance) {
     return { success: true, data: visitors };
   });
 
-  // Get visitor by ID
-  fastify.get('/:id', async (request, reply) => {
+  // Get visitor by ID (require auth, same organization)
+  fastify.get('/:id', { preHandler: requireAuth }, async (request, reply) => {
     const { id } = request.params as { id: string };
 
     const visitor = await prisma.visitor.findUnique({
-      where: { id },
+      where: {
+        id,
+        organizationId: request.user!.organizationId,
+      },
       include: {
         sessions: { orderBy: { startedAt: 'desc' }, take: 10 },
         conversations: { orderBy: { createdAt: 'desc' }, take: 10 },
@@ -59,20 +74,23 @@ export async function visitorRoutes(fastify: FastifyInstance) {
     if (!visitor) {
       return reply.status(404).send({
         success: false,
-        error: { code: 'NOT_FOUND', message: 'Visitor not found' },
+        error: { code: ERROR_CODES.NOT_FOUND, message: 'Visitor not found' },
       });
     }
 
     return { success: true, data: visitor };
   });
 
-  // Update visitor
-  fastify.put('/:id', async (request, reply) => {
+  // Update visitor (require auth, same organization)
+  fastify.put('/:id', { preHandler: requireAuth }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const { name, email, phone, tags, metadata } = request.body as any;
 
     const visitor = await prisma.visitor.update({
-      where: { id },
+      where: {
+        id,
+        organizationId: request.user!.organizationId,
+      },
       data: { name, email, phone, tags, metadata },
     });
 

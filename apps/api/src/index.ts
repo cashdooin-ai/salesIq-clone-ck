@@ -3,6 +3,7 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import cookie from '@fastify/cookie';
 import rateLimit from '@fastify/rate-limit';
+import multipart from '@fastify/multipart';
 import { Server } from 'socket.io';
 import { createServer } from 'http';
 
@@ -54,6 +55,15 @@ async function main() {
   await fastify.register(rateLimit, {
     max: config.rateLimit.max,
     timeWindow: config.rateLimit.windowMs,
+  });
+
+  // Register multipart plugin for file uploads
+  await fastify.register(multipart, {
+    limits: {
+      fileSize: 10 * 1024 * 1024, // 10MB default max file size
+      files: 5, // Max 5 files per request
+      fields: 10, // Max 10 non-file fields
+    },
   });
 
   // Setup routes
