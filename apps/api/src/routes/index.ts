@@ -6,6 +6,8 @@ import { visitorRoutes } from '../modules/visitors/visitors.routes.js';
 import { conversationRoutes } from '../modules/conversations/conversations.routes.js';
 import { widgetRoutes } from '../modules/widget/widget.routes.js';
 import { uploadRoutes } from '../modules/uploads/uploads.routes.js';
+import { analyticsRoutes } from '../modules/analytics/analytics.routes.js';
+import { devRoutes } from '../modules/dev/dev.routes.js';
 import { API_PREFIX } from '@nexvo/shared';
 
 export async function setupRoutes(fastify: FastifyInstance) {
@@ -30,8 +32,14 @@ export async function setupRoutes(fastify: FastifyInstance) {
       // Uploads
       await app.register(uploadRoutes, { prefix: '/uploads' });
 
+      // Analytics
+      await app.register(analyticsRoutes, { prefix: '/analytics' });
+
       // Widget (public API)
       await app.register(widgetRoutes, { prefix: '/widget' });
+
+      // Development tools (dev only)
+      await app.register(devRoutes, { prefix: '/dev' });
     },
     { prefix: API_PREFIX }
   );

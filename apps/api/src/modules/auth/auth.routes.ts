@@ -1,10 +1,13 @@
 import { FastifyInstance } from 'fastify';
 import { z } from 'zod';
 import bcrypt from 'bcryptjs';
+import jwt from 'jsonwebtoken';
 import { prisma } from '@nexvo/database';
 import { generateApiKey, slugify, ERROR_CODES } from '@nexvo/shared';
 import { signTokens, verifyRefreshToken } from './auth.utils.js';
 import { requireAuth } from '../../middleware/index.js';
+import { notificationService } from '../../services/notifications.js';
+import { config } from '../../config/index.js';
 
 // Validation schemas
 const registerSchema = z.object({
@@ -81,6 +84,11 @@ export async function authRoutes(fastify: FastifyInstance) {
 
     const user = organization.users[0];
     const tokens = await signTokens(user.id, organization.id);
+
+    // Send welcome email (async, non-blocking)
+    notificationService.sendWelcomeEmail(user.id).catch(err => {
+      request.log.error({ err, userId: user.id }, 'Failed to send welcome email');
+    });
 
     return {
       success: true,
@@ -290,7 +298,7 @@ export async function authRoutes(fastify: FastifyInstance) {
     };
   });
 
-  // Request password reset (placeholder for email verification)
+  // Request password reset
   fastify.post('/request-password-reset', async (request, reply) => {
     const body = requestPasswordResetSchema.parse(request.body);
 
@@ -300,11 +308,19 @@ export async function authRoutes(fastify: FastifyInstance) {
     });
 
     // Always return success (don't reveal if email exists)
-    // In production, send email with reset link
-
     if (user) {
-      // TODO: Generate reset token and send email
-      // For now, just log it
+      // Generate reset token
+      const resetToken = jwt.sign(
+        { userId: user.id, type: 'password-reset' },
+        config.jwtSecret,
+        { expiresIn: '1h' }
+      );
+
+      // Send password reset email (async, non-blocking)
+      notificationService.sendPasswordResetEmail(user.id, resetToken).catch(err => {
+        request.log.error({ err, userId: user.id }, 'Failed to send password reset email');
+      });
+
       request.log.info({ userId: user.id, email: user.email }, 'Password reset requested');
     }
 
@@ -316,20 +332,46 @@ export async function authRoutes(fastify: FastifyInstance) {
     };
   });
 
-  // Reset password with token (placeholder)
+  // Reset password with token
   fastify.post('/reset-password', async (request, reply) => {
     const body = resetPasswordSchema.parse(request.body);
 
-    // TODO: Verify reset token and update password
-    // For now, return not implemented
+    try {
+      // Verify reset token
+      const payload = jwt.verify(body.token, config.jwtSecret) as {
+        userId: string;
+        type: string;
+      };
 
-    return reply.status(501).send({
-      success: false,
-      error: {
-        code: ERROR_CODES.SERVICE_UNAVAILABLE,
-        message: 'Password reset is not yet implemented',
-      },
-    });
+      if (payload.type !== 'password-reset') {
+        return reply.status(400).send({
+          success: false,
+          error: { code: 'INVALID_TOKEN', message: 'Invalid reset token' },
+        });
+      }
+
+      // Hash new password
+      const newPasswordHash = await bcrypt.hash(body.newPassword, 12);
+
+      // Update password
+      await prisma.user.update({
+        where: { id: payload.userId },
+        data: { passwordHash: newPasswordHash },
+      });
+
+      return {
+        success: true,
+        data: { message: 'Password reset successfully' },
+      };
+    } catch {
+      return reply.status(400).send({
+        success: false,
+        error: {
+          code: 'INVALID_TOKEN',
+          message: 'Invalid or expired reset token',
+        },
+      });
+    }
   });
 
   // Logout

@@ -12,6 +12,7 @@ import { setupRoutes } from './routes/index.js';
 import { setupSocket } from './socket/index.js';
 import { prisma } from '@nexvo/database';
 import { redis } from './lib/redis.js';
+import './queues/email.queue.js'; // Initialize email queue worker
 
 async function main() {
   // Create Fastify instance

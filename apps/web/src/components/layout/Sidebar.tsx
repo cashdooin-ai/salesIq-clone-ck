@@ -1,15 +1,18 @@
 import { NavLink } from 'react-router-dom';
-import { MessageSquare, Users, Settings, BarChart3 } from 'lucide-react';
+import { MessageSquare, Users, Settings, BarChart3, Bot } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useChatStore } from '@/stores/chatStore';
 import { useVisitorStore } from '@/stores/visitorStore';
+import { useChatbotStore } from '@/stores/chatbotStore';
 
 export function Sidebar() {
   const { conversations } = useChatStore();
   const { onlineVisitors } = useVisitorStore();
+  const { chatbots } = useChatbotStore();
 
   const totalUnread = conversations.reduce((sum, conv) => sum + conv.unreadCount, 0);
   const onlineCount = onlineVisitors.length;
+  const activeChatbots = chatbots.filter((bot) => bot.status === 'active').length;
 
   const navItems = [
     {
@@ -23,6 +26,12 @@ export function Sidebar() {
       icon: Users,
       label: 'Visitors',
       badge: onlineCount,
+    },
+    {
+      to: '/chatbots',
+      icon: Bot,
+      label: 'Chatbots',
+      badge: activeChatbots > 0 ? activeChatbots : undefined,
     },
     {
       to: '/analytics',

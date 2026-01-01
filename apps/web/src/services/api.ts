@@ -170,6 +170,42 @@ class ApiService {
     });
     return response.data;
   }
+
+  // Analytics endpoints
+  async getAnalyticsOverview(startDate: string, endDate: string) {
+    const response = await this.api.get('/analytics/overview', {
+      params: { startDate, endDate },
+    });
+    return response.data.data;
+  }
+
+  async getAnalyticsConversations(startDate: string, endDate: string) {
+    const response = await this.api.get('/analytics/conversations', {
+      params: { startDate, endDate },
+    });
+    return response.data.data;
+  }
+
+  async getAnalyticsVisitors(startDate: string, endDate: string) {
+    const response = await this.api.get('/analytics/visitors', {
+      params: { startDate, endDate },
+    });
+    return response.data.data;
+  }
+
+  async getAnalyticsOperators(startDate: string, endDate: string) {
+    const response = await this.api.get('/analytics/operators', {
+      params: { startDate, endDate },
+    });
+    return response.data.data;
+  }
+
+  async getAnalyticsChatbots(startDate: string, endDate: string) {
+    const response = await this.api.get('/analytics/chatbots', {
+      params: { startDate, endDate },
+    });
+    return response.data.data;
+  }
 }
 
 export const apiService = new ApiService();

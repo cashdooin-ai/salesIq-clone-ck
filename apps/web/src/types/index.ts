@@ -99,3 +99,71 @@ export interface OperatorStats {
 export type UserStatus = 'online' | 'away' | 'busy' | 'offline';
 export type ConversationStatus = 'pending' | 'active' | 'resolved' | 'closed';
 export type MessageType = 'text' | 'file' | 'image' | 'system';
+
+// Chatbot types
+export type BotNodeType = 'start' | 'message' | 'question' | 'buttons' | 'condition' | 'action' | 'end';
+export type ChatbotStatus = 'draft' | 'active' | 'inactive';
+
+export interface BotButton {
+  label: string;
+  value: string;
+}
+
+export interface BotCondition {
+  field: string;
+  operator: 'equals' | 'contains' | 'greater_than' | 'less_than' | 'not_equals';
+  value: string;
+}
+
+export interface BotAction {
+  type: 'assign' | 'tag' | 'webhook' | 'email' | 'update_field';
+  params: Record<string, any>;
+}
+
+export interface BotNodeData {
+  label: string;
+  content?: string;
+  buttons?: BotButton[];
+  condition?: BotCondition;
+  action?: BotAction;
+  inputType?: 'text' | 'email' | 'number' | 'phone';
+  variableName?: string;
+}
+
+export interface BotNode {
+  id: string;
+  type: BotNodeType;
+  data: BotNodeData;
+  position: { x: number; y: number };
+}
+
+export interface BotEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string;
+  targetHandle?: string;
+  label?: string;
+}
+
+export interface ChatbotFlow {
+  nodes: BotNode[];
+  edges: BotEdge[];
+}
+
+export interface Chatbot {
+  id: string;
+  name: string;
+  description?: string;
+  status: ChatbotStatus;
+  flow: ChatbotFlow;
+  triggers?: {
+    urls?: string[];
+    delay?: number;
+    scrollPercentage?: number;
+  };
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+  organizationId: string;
+}
