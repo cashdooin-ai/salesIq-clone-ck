@@ -7,6 +7,8 @@ import { conversationRoutes } from '../modules/conversations/conversations.route
 import { widgetRoutes } from '../modules/widget/widget.routes.js';
 import { uploadRoutes } from '../modules/uploads/uploads.routes.js';
 import { analyticsRoutes } from '../modules/analytics/analytics.routes.js';
+import { billingRoutes } from '../modules/billing/billing.routes.js';
+import { webhookRoutes } from '../modules/webhooks/webhooks.routes.js';
 import { devRoutes } from '../modules/dev/dev.routes.js';
 import { API_PREFIX } from '@nexvo/shared';
 
@@ -35,8 +37,14 @@ export async function setupRoutes(fastify: FastifyInstance) {
       // Analytics
       await app.register(analyticsRoutes, { prefix: '/analytics' });
 
+      // Billing
+      await app.register(billingRoutes, { prefix: '/billing' });
+
       // Widget (public API)
       await app.register(widgetRoutes, { prefix: '/widget' });
+
+      // Webhooks (public API for payment gateways)
+      await app.register(webhookRoutes, { prefix: '/webhooks' });
 
       // Development tools (dev only)
       await app.register(devRoutes, { prefix: '/dev' });

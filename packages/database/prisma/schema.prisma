@@ -25,8 +25,21 @@ model Organization {
   settings     Json @default("{}")
   widgetConfig Json @default("{}")
 
-  // Plan
+  // Plan (legacy field, use subscription for full details)
   plan PlanType @default(FREE)
+
+  // Billing
+  billingEmail   String?
+  billingCountry String? // ISO country code (IN, US, etc.)
+  currency       String  @default("USD") // USD, INR, EUR, etc.
+
+  // Payment Gateway Customer IDs
+  stripeCustomerId    String? @unique
+  razorpayCustomerId  String? @unique
+
+  // Tax Information (for India GST, etc.)
+  taxId     String? // GST number for India
+  taxIdType String? // gstin, vat, etc.
 
   // Timestamps
   createdAt DateTime @default(now())
@@ -40,8 +53,15 @@ model Organization {
   departments     Department[]
   cannedResponses CannedResponse[]
   apiKeys         ApiKey[]
+  subscriptions   Subscription[]
+  invoices        Invoice[]
+  payments        Payment[]
+  usageRecords    UsageRecord[]
+  promoCodes      PromoCodeUsage[]
 
   @@index([slug])
+  @@index([stripeCustomerId])
+  @@index([razorpayCustomerId])
 }
 
 enum PlanType {
@@ -481,4 +501,427 @@ model Upload {
   @@index([organizationId])
   @@index([userId])
   @@index([folder])
+}
+
+// ============================================
+// SUBSCRIPTION & BILLING
+// ============================================
+
+model PricingPlan {
+  id   String @id @default(cuid())
+  name String @unique // free, starter, pro, enterprise
+
+  // Display
+  displayName String
+  description String?
+  badge       String? // "Popular", "Best Value", etc.
+
+  // Pricing (store in smallest unit - cents/paise)
+  priceMonthlyUSD  Int @default(0) // in cents
+  priceYearlyUSD   Int @default(0) // in cents (annual)
+  priceMonthlyINR  Int @default(0) // in paise
+  priceYearlyINR   Int @default(0) // in paise (annual)
+
+  // Features & Limits
+  features Json @default("[]") // ["Feature 1", "Feature 2"]
+  limits   Json @default("{}") // { "operators": 5, "chats": 1000, "visitors": 10000 }
+
+  // Limits breakdown
+  maxOperators        Int @default(1)
+  maxChatsPerMonth    Int @default(100)
+  maxVisitorsPerMonth Int @default(1000)
+  maxChatbots         Int @default(1)
+  maxDepartments      Int @default(1)
+  historyRetentionDays Int @default(30)
+
+  // Feature flags
+  hasAnalytics        Boolean @default(false)
+  hasCustomBranding   Boolean @default(false)
+  hasApiAccess        Boolean @default(false)
+  hasWhitelabel       Boolean @default(false)
+  hasPrioritySupport  Boolean @default(false)
+  hasAIChatbot        Boolean @default(false)
+  hasMultiChannel     Boolean @default(false)
+
+  // Status
+  isActive   Boolean @default(true)
+  isCustom   Boolean @default(false) // For enterprise custom plans
+  sortOrder  Int     @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  subscriptions Subscription[]
+
+  @@index([name])
+  @@index([isActive])
+}
+
+model Subscription {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  planId String
+  plan   PricingPlan @relation(fields: [planId], references: [id])
+
+  // Billing Cycle
+  billingCycle BillingCycle @default(MONTHLY)
+  currency     String       @default("USD")
+
+  // Status
+  status SubscriptionStatus @default(TRIALING)
+
+  // Pricing at time of subscription (in smallest unit)
+  pricePerPeriod Int @default(0)
+
+  // Trial
+  trialEndsAt DateTime?
+
+  // Current Period
+  currentPeriodStart DateTime @default(now())
+  currentPeriodEnd   DateTime
+
+  // Cancellation
+  cancelAtPeriodEnd Boolean   @default(false)
+  canceledAt        DateTime?
+  cancelReason      String?
+
+  // Payment Gateway References
+  paymentGateway           PaymentGateway?
+  stripeSubscriptionId     String?         @unique
+  razorpaySubscriptionId   String?         @unique
+  instamojoSubscriptionId  String?         @unique
+
+  // Promo/Discount
+  discountPercent Int     @default(0)
+  discountEndsAt  DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  invoices Invoice[]
+  payments Payment[]
+
+  @@index([organizationId])
+  @@index([status])
+  @@index([currentPeriodEnd])
+  @@index([stripeSubscriptionId])
+  @@index([razorpaySubscriptionId])
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+  QUARTERLY
+  LIFETIME
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELED
+  EXPIRED
+  INCOMPLETE
+}
+
+enum PaymentGateway {
+  STRIPE
+  RAZORPAY
+  INSTAMOJO
+  PAYTM
+  UPI
+  MANUAL
+}
+
+model Invoice {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  // Invoice Details
+  invoiceNumber String @unique
+
+  // Amounts (in smallest unit - cents/paise)
+  subtotal    Int @default(0)
+  discount    Int @default(0)
+  tax         Int @default(0)
+  total       Int @default(0)
+  amountPaid  Int @default(0)
+  amountDue   Int @default(0)
+
+  currency String @default("USD")
+
+  // Tax Details
+  taxRate   Float  @default(0) // e.g., 18 for 18% GST
+  taxType   String? // GST, VAT, etc.
+
+  // Status
+  status InvoiceStatus @default(DRAFT)
+
+  // Dates
+  issuedAt DateTime @default(now())
+  dueAt    DateTime
+  paidAt   DateTime?
+
+  // Period covered
+  periodStart DateTime?
+  periodEnd   DateTime?
+
+  // Payment Gateway References
+  stripeInvoiceId    String? @unique
+  razorpayInvoiceId  String? @unique
+
+  // Line Items
+  lineItems Json @default("[]") // [{ description, quantity, unitPrice, amount }]
+
+  // Notes
+  notes     String?
+  footerNote String?
+
+  // PDF
+  pdfUrl String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  payments Payment[]
+
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([status])
+  @@index([invoiceNumber])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  PENDING
+  PAID
+  VOID
+  REFUNDED
+  PARTIALLY_PAID
+  OVERDUE
+}
+
+model Payment {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  subscriptionId String?
+  subscription   Subscription? @relation(fields: [subscriptionId], references: [id])
+
+  invoiceId String?
+  invoice   Invoice? @relation(fields: [invoiceId], references: [id])
+
+  // Amount (in smallest unit)
+  amount   Int
+  currency String @default("USD")
+
+  // Payment Method
+  paymentGateway PaymentGateway
+  paymentMethod  String? // card, upi, netbanking, wallet, etc.
+
+  // Status
+  status PaymentStatus @default(PENDING)
+
+  // Gateway References
+  stripePaymentId    String? @unique
+  razorpayPaymentId  String? @unique
+  instamojoPaymentId String? @unique
+  paytmPaymentId     String? @unique
+  upiTransactionId   String? @unique
+
+  // UPI Specific
+  upiId     String? // e.g., yourname@upi
+  upiVpa    String? // Virtual Payment Address
+
+  // Card Details (masked)
+  cardLast4 String?
+  cardBrand String? // visa, mastercard, rupay, etc.
+
+  // Failure
+  failureCode    String?
+  failureMessage String?
+
+  // Refund
+  refundedAmount Int       @default(0)
+  refundedAt     DateTime?
+  refundReason   String?
+
+  // Metadata
+  metadata Json @default("{}")
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([organizationId])
+  @@index([subscriptionId])
+  @@index([invoiceId])
+  @@index([status])
+  @@index([paymentGateway])
+  @@index([stripePaymentId])
+  @@index([razorpayPaymentId])
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+  CANCELED
+}
+
+// ============================================
+// PROMO CODES & DISCOUNTS
+// ============================================
+
+model PromoCode {
+  id String @id @default(cuid())
+
+  code        String @unique
+  description String?
+
+  // Discount
+  discountType   DiscountType @default(PERCENTAGE)
+  discountValue  Int          @default(0) // percentage or fixed amount in cents/paise
+  discountCurrency String?    // required for FIXED type
+
+  // Applicability
+  applicablePlans String[] @default([]) // empty = all plans
+
+  // Validity
+  validFrom    DateTime  @default(now())
+  validUntil   DateTime?
+  maxUses      Int?      // null = unlimited
+  maxUsesPerOrg Int      @default(1)
+  usedCount    Int       @default(0)
+
+  // Duration
+  durationMonths Int? // how long the discount applies, null = forever
+
+  // Conditions
+  minAmount        Int?    // minimum purchase amount
+  firstTimeOnly    Boolean @default(false)
+  newSignupsOnly   Boolean @default(false)
+
+  // Campaign
+  campaign String? // new_year_2025, diwali_sale, etc.
+
+  // Status
+  isActive Boolean @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  usages PromoCodeUsage[]
+
+  @@index([code])
+  @@index([isActive])
+  @@index([campaign])
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model PromoCodeUsage {
+  id String @id @default(cuid())
+
+  promoCodeId String
+  promoCode   PromoCode @relation(fields: [promoCodeId], references: [id])
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Discount applied
+  discountApplied Int // amount in cents/paise
+  currency        String
+
+  // Timestamps
+  usedAt DateTime @default(now())
+
+  @@unique([promoCodeId, organizationId])
+  @@index([promoCodeId])
+  @@index([organizationId])
+}
+
+// ============================================
+// USAGE TRACKING & METERING
+// ============================================
+
+model UsageRecord {
+  id String @id @default(cuid())
+
+  organizationId String
+  organization   Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  // Period
+  periodStart DateTime
+  periodEnd   DateTime
+
+  // Usage Metrics
+  chatsCount       Int @default(0)
+  messagesCount    Int @default(0)
+  visitorsCount    Int @default(0)
+  operatorsCount   Int @default(0)
+  chatbotsCount    Int @default(0)
+  fileStorageBytes BigInt @default(0)
+  apiCallsCount    Int @default(0)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([organizationId, periodStart, periodEnd])
+  @@index([organizationId])
+  @@index([periodStart])
+}
+
+// ============================================
+// PAYMENT WEBHOOKS LOG
+// ============================================
+
+model WebhookEvent {
+  id String @id @default(cuid())
+
+  // Source
+  gateway   PaymentGateway
+  eventType String
+  eventId   String @unique
+
+  // Payload
+  payload Json
+
+  // Processing
+  processed   Boolean   @default(false)
+  processedAt DateTime?
+  error       String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([gateway])
+  @@index([eventType])
+  @@index([processed])
 }

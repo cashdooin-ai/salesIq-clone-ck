@@ -59,6 +59,46 @@ export const config = {
   // OpenAI
   openaiApiKey: process.env.OPENAI_API_KEY || '',
 
+  // Payment Gateways
+
+  // Stripe (International)
+  stripe: {
+    secretKey: process.env.STRIPE_SECRET_KEY || '',
+    publishableKey: process.env.STRIPE_PUBLISHABLE_KEY || '',
+    webhookSecret: process.env.STRIPE_WEBHOOK_SECRET || '',
+  },
+
+  // Razorpay (India)
+  razorpay: {
+    keyId: process.env.RAZORPAY_KEY_ID || '',
+    keySecret: process.env.RAZORPAY_KEY_SECRET || '',
+    webhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+  },
+
+  // Instamojo (India)
+  instamojo: {
+    apiKey: process.env.INSTAMOJO_API_KEY || '',
+    authToken: process.env.INSTAMOJO_AUTH_TOKEN || '',
+    salt: process.env.INSTAMOJO_SALT || '',
+    sandbox: process.env.INSTAMOJO_SANDBOX === 'true',
+  },
+
+  // Paytm (India)
+  paytm: {
+    merchantId: process.env.PAYTM_MERCHANT_ID || '',
+    merchantKey: process.env.PAYTM_MERCHANT_KEY || '',
+    website: process.env.PAYTM_WEBSITE || 'WEBSTAGING',
+    industryType: process.env.PAYTM_INDUSTRY_TYPE || 'Retail',
+    channelId: process.env.PAYTM_CHANNEL_ID || 'WEB',
+    sandbox: process.env.PAYTM_SANDBOX === 'true',
+  },
+
+  // UPI Direct (India)
+  upi: {
+    payeeVpa: process.env.UPI_PAYEE_VPA || '', // e.g., yourcompany@upi
+    payeeName: process.env.UPI_PAYEE_NAME || 'Nexvo',
+  },
+
   // Logging
   logLevel: process.env.LOG_LEVEL || 'debug',
 };
